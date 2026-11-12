@@ -97,12 +97,12 @@ See `.env.example`. Important:
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | Postgres in Docker; SQLite for local dev |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | OpenAI-compatible chat API |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | Default **Gemini** OpenAI-compatible API (`gemini-3.1-flash-lite`); set `LLM_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey) |
 | `GAMES_PER_RUN` | Games per scheduled/manual run (20) |
 | `SCHEDULER_INTERVAL_MINUTES` | Default 60 |
 | `SCRAPER_ENABLED` | `false` = no network scrape |
 
-Without `LLM_API_KEY`, summaries use **quote-based heuristics** (still useful for demo).
+Without `LLM_API_KEY`, summaries use **quote-based heuristics**. With a key, calls use short prompts, ~0.75s spacing between requests, and **429/503 retry + backoff** before falling back to heuristics (free-tier friendly).
 
 ## UI features
 

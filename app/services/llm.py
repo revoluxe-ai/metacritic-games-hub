@@ -1,14 +1,20 @@
-"""OpenAI-compatible LLM with heuristic fallback."""
+"""OpenAI-compatible LLM with heuristic fallback (Gemini default)."""
 
 from __future__ import annotations
 
+import logging
 import re
+import time
 from collections import Counter
 
-from openai import OpenAI
+from openai import APIStatusError, OpenAI, RateLimitError
 
 from app.config import get_settings
 from app.services.metacritic import GamePayload, ReviewSnippet
+
+log = logging.getLogger(__name__)
+
+_RETRYABLE_STATUS = {429, 500, 503, 502, 504}
 
 
 def _first_sentence(quote: str, max_len: int = 200) -> str:
@@ -120,17 +126,50 @@ def _keyword_heuristic(text: str) -> tuple[str, str]:
     return likes, dislikes
 
 
+def _is_retryable(exc: BaseException) -> bool:
+    if isinstance(exc, RateLimitError):
+        return True
+    if isinstance(exc, APIStatusError):
+        return exc.status_code in _RETRYABLE_STATUS
+    return False
+
+
+def chat_completion_with_retry(client: OpenAI, **kwargs):
+    """Single-flight chat call with exponential backoff on 429/503 (free-tier friendly)."""
+    settings = get_settings()
+    last_exc: BaseException | None = None
+    for attempt in range(settings.llm_max_retries + 1):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            if not _is_retryable(exc) or attempt >= settings.llm_max_retries:
+                raise
+            last_exc = exc
+            delay = settings.llm_retry_backoff_seconds * (2**attempt)
+            log.warning("LLM retry %s after %ss: %s", attempt + 1, delay, exc)
+            time.sleep(delay)
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("chat_completion_with_retry exhausted without result")
+
+
 class LLMService:
     def __init__(self) -> None:
         settings = get_settings()
         self.enabled = bool(settings.llm_api_key)
         self.model = settings.llm_model
-        self._client = None
+        self._client: OpenAI | None = None
         if self.enabled:
             self._client = OpenAI(
                 api_key=settings.llm_api_key,
                 base_url=settings.llm_base_url,
+                max_retries=0,
             )
+
+    def _throttle(self) -> None:
+        settings = get_settings()
+        if self.enabled and settings.llm_request_delay_seconds > 0:
+            time.sleep(settings.llm_request_delay_seconds)
 
     def summarize_reviews(
         self, game: GamePayload, critic: bool
@@ -140,40 +179,40 @@ class LLMService:
         if not self.enabled or not self._client:
             return _heuristic_summary(reviews, audience, critics=critic)
 
+        settings = get_settings()
         snippets = "\n".join(
-            f"- ({r.score}) {r.quote[:400]}"
-            for r in reviews[:12]
+            f"- ({r.score}) {r.quote[:250]}"
+            for r in reviews[: settings.llm_max_review_snippets]
             if r.quote
         )
         if not snippets:
             return _heuristic_summary(reviews, audience, critics=critic)
 
         prompt = (
-            f"Summarize what {audience} like and dislike about the game "
-            f"'{game.title}' based on these Metacritic review excerpts.\n"
-            "Use exactly these headings:\n"
-            "What people like:\n"
-            "(bullet points)\n\n"
-            "What people dislike:\n"
-            "(bullet points)\n"
-            "Be specific; do not invent facts not supported by the quotes.\n\n"
+            f"Summarize what {audience} like and dislike about '{game.title}' "
+            "from these Metacritic excerpts only.\n"
+            "Headings: What people like: / What people dislike:\n"
+            "Use 2-4 short bullets each. No invented facts.\n\n"
             f"{snippets}"
         )
         try:
-            resp = self._client.chat.completions.create(
+            self._throttle()
+            resp = chat_completion_with_retry(
+                self._client,
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You write concise English summaries for a game catalog.",
+                        "content": "Concise English game-review summaries.",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=350,
+                max_tokens=settings.llm_max_output_tokens,
                 temperature=0.3,
             )
             return (resp.choices[0].message.content or "").strip()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            log.warning("LLM summarize_reviews failed, using heuristic: %s", exc)
             return _heuristic_summary(reviews, audience, critics=critic)
 
     def youtube_takeaway(self, game_title: str, transcript_excerpt: str) -> str:
@@ -187,23 +226,24 @@ class LLMService:
                 f"Friction points mentioned: {dislikes}."
             )
 
+        settings = get_settings()
         prompt = (
-            f"From this YouTube let's-play transcript excerpt for '{game_title}', "
-            "write 3-4 sentences on what the creator emphasizes (gameplay feel, "
-            "difficulty, story, bugs) and a one-line conclusion for shoppers.\n\n"
-            f"{transcript_excerpt[:6000]}"
+            f"From this let's-play transcript for '{game_title}', "
+            "write 2-3 sentences on gameplay/story/difficulty and one shopper takeaway.\n\n"
+            f"{transcript_excerpt[: settings.llm_max_transcript_chars]}"
         )
         try:
-            resp = self._client.chat.completions.create(
+            self._throttle()
+            resp = chat_completion_with_retry(
+                self._client,
                 model=self.model,
-                messages=[
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=280,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=min(settings.llm_max_output_tokens, 220),
                 temperature=0.4,
             )
             return (resp.choices[0].message.content or "").strip()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            log.warning("LLM youtube_takeaway failed, using heuristic: %s", exc)
             likes, dislikes = _keyword_heuristic(transcript_excerpt)
             return (
                 f"What the streamer highlights: {likes}.\n"

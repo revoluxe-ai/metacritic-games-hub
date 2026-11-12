@@ -28,7 +28,8 @@ The `app` service runs **web + embedded scheduler** when `RUN_SCHEDULER=true`. T
 | `SCRAPER_ENABLED` | `true` |
 | `GAMES_PER_RUN` | `20` |
 | `SCHEDULER_INTERVAL_MINUTES` | `60` |
-| `LLM_API_KEY` | optional |
+| `LLM_API_KEY` | Gemini API key (optional; defaults target `gemini-3.1-flash-lite`) |
+| `LLM_BASE_URL` | Default `https://generativelanguage.googleapis.com/v1beta/openai/` |
 
 4. Start command (default from `railway.json`): `sh scripts/railway_start.sh`  
    - Runs `init_db`, then Uvicorn on `$PORT` with APScheduler when `RUN_SCHEDULER=true`.
@@ -65,7 +66,7 @@ fly deploy
 | `RUN_SCHEDULER` | `true` = hourly APScheduler inside FastAPI process |
 | `RUN_INGESTION_ON_STARTUP` | `true` = one ingest job when app boots |
 | `METACRITIC_API_KEY` | Metacritic web API key (default included) |
-| `LLM_*` | OpenAI-compatible LLM (optional; heuristic fallback) |
+| `LLM_*` | Gemini OpenAI-compatible endpoint by default; heuristic fallback on missing key or after retries |
 | `YOUTUBE_ENABLED` | `false` to skip YouTube step during ingest |
 | `GAMES_PER_RUN` | Games per hourly/manual run (default 20) |
 | `SCHEDULER_INTERVAL_MINUTES` | Scheduler interval (default 60) |
