@@ -7,11 +7,6 @@ from urllib.parse import quote_plus
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    VideoUnavailable,
-)
 
 USER_AGENT = "Mozilla/5.0 (compatible; SkytecMetacriticHub/1.0)"
 
@@ -35,11 +30,12 @@ def search_lets_play_video_id(game_title: str) -> str | None:
 
 
 def fetch_transcript_excerpt(video_id: str, max_chars: int = 8000) -> str:
+    # YouTube often returns an empty/non-XML body; treat any fetch/parse error as "no transcript".
     try:
         transcript = YouTubeTranscriptApi.get_transcript(
             video_id, languages=["en", "en-US", "en-GB"]
         )
-    except (NoTranscriptFound, TranscriptsDisabled, VideoUnavailable):
+    except Exception:
         try:
             transcript = YouTubeTranscriptApi.get_transcript(video_id)
         except Exception:
