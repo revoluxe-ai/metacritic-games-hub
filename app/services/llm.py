@@ -11,38 +11,83 @@ from app.config import get_settings
 from app.services.metacritic import GamePayload, ReviewSnippet
 
 
-def _heuristic_summary(reviews: list[ReviewSnippet], audience: str) -> str:
+def _first_sentence(quote: str, max_len: int = 200) -> str:
+    quote = quote.strip()
+    if not quote:
+        return ""
+    parts = re.split(r"(?<=[.!?])\s+", quote)
+    sentence = parts[0] if parts else quote
+    if len(sentence) > max_len:
+        sentence = sentence[: max_len - 1].rstrip() + "…"
+    return sentence
+
+
+def _heuristic_summary(reviews: list[ReviewSnippet], audience: str, *, critics: bool) -> str:
     if not reviews:
-        return f"No {audience} reviews available yet."
+        return (
+            f"What people like:\n"
+            f"- Not enough {audience} reviews yet to summarize.\n\n"
+            f"What people dislike:\n"
+            f"- No recurring complaints reported yet."
+        )
 
-    scores = [r.score for r in reviews if r.score is not None]
+    if critics:
+        pos_threshold, neg_threshold = 70, 49
+    else:
+        pos_threshold, neg_threshold = 7.0, 4.9
+
+    scores = [float(r.score) for r in reviews if r.score is not None]
     avg = sum(scores) / len(scores) if scores else None
-    positive = [r for r in reviews if r.score is not None and float(r.score) >= 70]
-    negative = [r for r in reviews if r.score is not None and float(r.score) < 50]
 
-    likes: list[str] = []
-    dislikes: list[str] = []
-    for r in positive[:5]:
-        if r.quote:
-            likes.append(r.quote[:180])
-    for r in negative[:5]:
-        if r.quote:
-            dislikes.append(r.quote[:180])
+    positive = [
+        r for r in reviews if r.score is not None and float(r.score) >= pos_threshold and r.quote
+    ]
+    negative = [
+        r for r in reviews if r.score is not None and float(r.score) <= neg_threshold and r.quote
+    ]
+    mixed = [
+        r
+        for r in reviews
+        if r.score is not None
+        and neg_threshold < float(r.score) < pos_threshold
+        and r.quote
+    ]
 
-    if not likes and reviews:
-        likes = [reviews[0].quote[:180]] if reviews[0].quote else []
-    if not dislikes and len(reviews) > 1:
-        dislikes = [reviews[-1].quote[:180]] if reviews[-1].quote else []
+    like_lines: list[str] = []
+    for r in positive[:4]:
+        like_lines.append(f"- {_first_sentence(r.quote)}")
+    if not like_lines:
+        for r in mixed[:3]:
+            like_lines.append(f"- {_first_sentence(r.quote)}")
+    if not like_lines:
+        for r in reviews:
+            if r.quote and r.score is not None and float(r.score) >= pos_threshold:
+                like_lines.append(f"- {_first_sentence(r.quote)}")
+                break
+    if not like_lines:
+        like_lines.append("- Reviewers praise specific strengths but scores are mixed in this sample.")
 
-    avg_str = f" Average score: {avg:.1f}." if avg is not None else ""
-    like_txt = " ".join(likes[:3]) if likes else "Reviewers highlight solid fundamentals."
-    dislike_txt = (
-        " ".join(dislikes[:3]) if dislikes else "Few consistent complaints in recent reviews."
-    )
+    dislike_lines: list[str] = []
+    for r in negative[:4]:
+        dislike_lines.append(f"- {_first_sentence(r.quote)}")
+    if not dislike_lines and len(reviews) > 1:
+        for r in reviews[-3:]:
+            if r.quote and r.score is not None and float(r.score) <= (pos_threshold if critics else 6.0):
+                dislike_lines.append(f"- {_first_sentence(r.quote)}")
+    if not dislike_lines:
+        dislike_lines.append("- No strong negative themes in the latest sampled reviews.")
+
+    avg_block = ""
+    if avg is not None:
+        label = "Average Metascore" if critics else "Average user score"
+        avg_block = f"({label}: {avg:.1f})\n"
+
     return (
-        f"{audience.capitalize()} sentiment (heuristic fallback{avg_str}) "
-        f"Likes: {like_txt} "
-        f"Dislikes: {dislike_txt}"
+        "What people like:\n"
+        + avg_block
+        + "\n".join(like_lines)
+        + "\n\nWhat people dislike:\n"
+        + "\n".join(dislike_lines)
     )
 
 
@@ -93,7 +138,7 @@ class LLMService:
         reviews = game.critic_reviews if critic else game.user_reviews
         audience = "critics" if critic else "users"
         if not self.enabled or not self._client:
-            return _heuristic_summary(reviews, audience)
+            return _heuristic_summary(reviews, audience, critics=critic)
 
         snippets = "\n".join(
             f"- ({r.score}) {r.quote[:400]}"
@@ -101,12 +146,16 @@ class LLMService:
             if r.quote
         )
         if not snippets:
-            return _heuristic_summary(reviews, audience)
+            return _heuristic_summary(reviews, audience, critics=critic)
 
         prompt = (
             f"Summarize what {audience} like and dislike about the game "
             f"'{game.title}' based on these Metacritic review excerpts.\n"
-            "Write 2 short paragraphs: first 'What people like', then 'What people dislike'.\n"
+            "Use exactly these headings:\n"
+            "What people like:\n"
+            "(bullet points)\n\n"
+            "What people dislike:\n"
+            "(bullet points)\n"
             "Be specific; do not invent facts not supported by the quotes.\n\n"
             f"{snippets}"
         )
@@ -125,7 +174,7 @@ class LLMService:
             )
             return (resp.choices[0].message.content or "").strip()
         except Exception:
-            return _heuristic_summary(reviews, audience)
+            return _heuristic_summary(reviews, audience, critics=critic)
 
     def youtube_takeaway(self, game_title: str, transcript_excerpt: str) -> str:
         if not transcript_excerpt.strip():
@@ -134,8 +183,7 @@ class LLMService:
         if not self.enabled or not self._client:
             likes, dislikes = _keyword_heuristic(transcript_excerpt)
             return (
-                f"Popular let's-play takeaway (heuristic): "
-                f"The streamer focused on {likes}. "
+                f"What the streamer highlights: {likes}.\n"
                 f"Friction points mentioned: {dislikes}."
             )
 
@@ -158,7 +206,6 @@ class LLMService:
         except Exception:
             likes, dislikes = _keyword_heuristic(transcript_excerpt)
             return (
-                f"Popular let's-play takeaway (heuristic): "
-                f"The streamer focused on {likes}. "
+                f"What the streamer highlights: {likes}.\n"
                 f"Friction points mentioned: {dislikes}."
             )

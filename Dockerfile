@@ -16,4 +16,4 @@ ENV APP_PORT=8742
 
 EXPOSE 8742
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}"]
+CMD ["sh", "scripts/railway_start.sh"]

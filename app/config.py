@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,9 +19,12 @@ class Settings(BaseSettings):
     games_per_run: int = 20
     scheduler_interval_minutes: int = 60
     scraper_enabled: bool = True
+    youtube_enabled: bool = True
+    run_scheduler: bool = False
+    run_ingestion_on_startup: bool = False
 
     app_host: str = "0.0.0.0"
-    app_port: int = 8742
+    app_port: int = int(os.environ.get("PORT", os.environ.get("APP_PORT", "8742")))
     secret_key: str = "dev-secret"
 
 

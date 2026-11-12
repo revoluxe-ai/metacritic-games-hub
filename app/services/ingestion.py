@@ -29,19 +29,55 @@ def get_or_create_daily_state(db: Session, today: date) -> DailyRunState:
     return state
 
 
+def _collect_candidates(
+    client: MetacriticClient, state: DailyRunState, limit: int
+) -> tuple[list[str], str]:
+    """Build a slug pool of at least `limit` items (New Releases HTML is often <20)."""
+    processed = set(state.processed_slugs_today or [])
+    need = limit + len(processed)
+
+    if not state.used_new_releases:
+        candidates: list[str] = client.list_new_release_slugs(limit=max(limit * 5, 60))
+        source = "new_releases"
+        state.used_new_releases = True
+        browse_offset = state.browse_offset
+        initial_offset = browse_offset
+        while len(candidates) < need:
+            batch = client.list_browse_slugs(offset=browse_offset, limit=48)
+            if not batch:
+                break
+            browse_offset += len(batch)
+            for slug in batch:
+                if slug not in candidates:
+                    candidates.append(slug)
+        state.browse_offset = browse_offset
+        if browse_offset > initial_offset:
+            source = "new_releases+browse"
+        return candidates, source
+
+    candidates = client.list_browse_slugs(offset=state.browse_offset, limit=limit * 3)
+    source = f"browse_offset_{state.browse_offset}"
+    state.browse_offset += max(len(candidates), limit)
+    if len(candidates) < limit:
+        extra_offset = state.browse_offset
+        while len(candidates) < need:
+            batch = client.list_browse_slugs(offset=extra_offset, limit=48)
+            if not batch:
+                break
+            extra_offset += len(batch)
+            for slug in batch:
+                if slug not in candidates:
+                    candidates.append(slug)
+        state.browse_offset = extra_offset
+    return candidates, source
+
+
 def pick_slugs_for_run(db: Session, client: MetacriticClient, limit: int) -> tuple[list[str], str]:
     today = date.today()
     state = get_or_create_daily_state(db, today)
     processed = set(state.processed_slugs_today or [])
 
-    if not state.used_new_releases:
-        candidates = client.list_new_release_slugs(limit=limit * 3)
-        source = "new_releases"
-        state.used_new_releases = True
-    else:
-        candidates = client.list_browse_slugs(offset=state.browse_offset, limit=limit * 3)
-        source = f"browse_offset_{state.browse_offset}"
-        state.browse_offset += limit
+    candidates, source = _collect_candidates(client, state, limit)
 
     picked: list[str] = []
     for slug in candidates:
@@ -86,7 +122,8 @@ def upsert_game(db: Session, payload, llm: LLMService, enable_youtube: bool = Tr
     game.critic_summary = llm.summarize_reviews(payload, critic=True)
     game.user_summary = llm.summarize_reviews(payload, critic=False)
 
-    if enable_youtube:
+    settings = get_settings()
+    if enable_youtube and settings.youtube_enabled:
         vid = search_lets_play_video_id(payload.title)
         if vid:
             excerpt = fetch_transcript_excerpt(vid)

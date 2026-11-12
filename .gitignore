@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 metacritic.db
+metacritic_ingest.db
+ingestion_run.log
 *.egg-info/
 .venv/
 venv/

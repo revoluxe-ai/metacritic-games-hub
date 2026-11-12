@@ -75,7 +75,7 @@ docker compose up --build
 - App: http://localhost:8742  
 - Worker monitor: http://localhost:8742/worker  
 
-Services: `db` (Postgres 16), `app` (Uvicorn), `worker` (scheduler).
+Services: `db` (Postgres 16), `app` (Uvicorn + optional `RUN_SCHEDULER`), legacy `worker` service optional.
 
 ### Local dev (SQLite)
 

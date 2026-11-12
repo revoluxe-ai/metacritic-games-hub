@@ -1,37 +1,55 @@
 # Submission report — Skytec Games AI Automation Engineer test
 
+## Live ingestion verification (2026-11-12)
+
+Full manual job: **20/20 games** from live Metacritic (`source: new_releases+browse`), SQLite DB `metacritic_ingest.db`, `LLM_API_KEY` unset (heuristic summaries), `YOUTUBE_ENABLED=false` for ingest speed.
+
+| # | Title |
+|---|--------|
+| 1 | The Legend of Zelda: Ocarina of Time |
+| 2 | Phantom Blade Zero |
+| 3 | Call of Duty: Modern Warfare 4 |
+| 4 | Final Fantasy Resonance |
+| 5 | Nintendo Switch Sports Resort |
+| 6 | Gears of War: E-Day |
+| 7 | Castlevania: Belmont's Curse |
+| 8 | Clive Barker's Hellraiser: Revival |
+| 9 | Star Wars: Galactic Racer |
+| 10 | Flea Madness |
+| 11 | Scarecrow: 90s Crime Story |
+| 12 | Menes: The Chainbreaker |
+| 13 | Vitavania |
+| 14 | Against the Horde |
+| 15 | LOST IN THE DARK LABYRINTH |
+| 16 | Doom Keeper |
+| 17 | Ophelia's Paradise |
+| 18 | Explosiovania |
+| 19 | Broken Horror Anthology |
+| 20 | Rolls and Dungeons |
+
+Command: `DATABASE_URL=sqlite:////workspace/metacritic_ingest.db LLM_API_KEY= YOUTUBE_ENABLED=false python3 -m scripts.run_full_ingestion`
+
+## Railway single-service deploy
+
+- `RUN_SCHEDULER=true` starts **BackgroundScheduler** inside FastAPI (`app/scheduler.py`, lifespan in `app/main.py`).
+- `railway.json`, `Procfile`, `scripts/railway_start.sh` — one web process + Postgres via `DATABASE_URL`; SQLite if unset.
+- Docker Compose `app` service uses the same start script with `RUN_SCHEDULER=true`.
+
 ## What is implemented
 
-1. **Ingestion service** — `worker` + manual `POST /api/worker/run-now`, default every 60 minutes, 20 games per run.
-2. **Daily logic** — first run: New Releases HTML slugs; later runs: finder API `sortBy=-releaseDate` with increasing offset; dedup via `processed_slugs_today`.
-3. **Fields** — title, cover, platforms (Metascore + user score each), developer, description, trailer/video URL, Metacritic link, genres.
-4. **LLM** — OpenAI-compatible env config; heuristic fallback when no key.
-5. **UI** — list, detail, platform filter, title search, rating sort, similar games (TF-IDF).
-6. **Worker monitor** — SSE `/api/worker/events`, Run now button (required).
-7. **Bonus YouTube** — search + subtitle transcript + short conclusion (when captions exist).
-8. **Docker** — `Dockerfile`, `docker-compose.yml`, `.env.example`, `DEPLOY.md`.
-9. **Tests** — `pytest` on HTML/JSON fixtures; `scripts/verify_scraper.py` for live API smoke test.
-10. **Seed** — `scripts/sample_games.json` for offline UI demo.
+1. Hourly / manual ingestion (20 games, daily New Releases + browse backfill).
+2. Metacritic JSON API + per-platform scores + review samples.
+3. LLM summaries with **readable heuristic fallback** (`What people like:` / `What people dislike:`).
+4. Full UI + worker SSE monitor + Run now.
+5. Similar games (TF-IDF), optional YouTube when `YOUTUBE_ENABLED=true`.
+6. Docker, DEPLOY.md, tests, screenshots under `docs/screenshots/`.
 
-## What is not / limitations
+## Limitations
 
-- **Docker** was not executed in the Cursor cloud VM (`docker` CLI missing); compose file is standard and intended for your machine/VPS.
-- **YouTube** step depends on public search HTML and caption availability; may be empty for very new/obscure titles.
-- **LLM quality** without API key is heuristic-only (by design).
-- **Per-platform user scores** use Metacritic stats API per platform slug (extra HTTP calls per platform).
-- **Public live URL** must be provisioned by you via DEPLOY.md (Render/Railway/etc.); repo is deploy-ready.
+- New Releases HTML yields ~9 slugs; first daily run **backfills from browse** to reach 20 (documented in README).
+- YouTube step skipped when disabled or no captions.
+- Docker not executed in cloud VM; compose/Railway config verified by file review + local SQLite ingest.
 
-## Verification performed (2026-11-12)
+## Tests
 
-```text
-pytest: 4 passed
-python -m scripts.verify_scraper:
-  browse slugs + new release slugs + enrich OK
-python -c enrich_game('hades-ii'): OK, Supergiant Games, 5 platforms
-```
-
-## How to submit
-
-1. Push repo; share Git URL.
-2. Deploy with `docker compose up` or cloud steps in DEPLOY.md; share HTTPS URL.
-3. Attach Cursor agent transcript JSONL as chat history.
+`pytest` — parsing, similarity, heuristic summary format.
