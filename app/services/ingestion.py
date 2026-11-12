@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from app.services.llm import LLMService
 from app.services.metacritic import MetacriticClient
 from app.services.youtube import fetch_transcript_excerpt, search_lets_play_video_id
 from app.services.youtube import lets_play_url
+
+log = logging.getLogger(__name__)
 
 
 def _log(db: Session, job: WorkerJob, message: str, level: str = "info") -> None:
@@ -47,9 +50,13 @@ def _collect_candidates(
             if not batch:
                 break
             browse_offset += len(batch)
+            added = 0
             for slug in batch:
                 if slug not in candidates:
                     candidates.append(slug)
+                    added += 1
+            if not added:
+                break
         state.browse_offset = browse_offset
         if browse_offset > initial_offset:
             source = "new_releases+browse"
@@ -65,11 +72,32 @@ def _collect_candidates(
             if not batch:
                 break
             extra_offset += len(batch)
+            added = 0
             for slug in batch:
                 if slug not in candidates:
                     candidates.append(slug)
+                    added += 1
+            if not added:
+                break
         state.browse_offset = extra_offset
     return candidates, source
+
+
+def slugs_missing_platforms(db: Session, limit: int) -> list[str]:
+    """Games persisted without platform rows (a later upsert step failed)."""
+    has_platform = (
+        db.query(GamePlatform.game_id)
+        .filter(GamePlatform.game_id == Game.id)
+        .exists()
+    )
+    rows = (
+        db.query(Game.slug)
+        .filter(~has_platform)
+        .order_by(Game.id)
+        .limit(limit)
+        .all()
+    )
+    return [slug for (slug,) in rows]
 
 
 def pick_slugs_for_run(db: Session, client: MetacriticClient, limit: int) -> tuple[list[str], str]:
@@ -77,13 +105,24 @@ def pick_slugs_for_run(db: Session, client: MetacriticClient, limit: int) -> tup
     state = get_or_create_daily_state(db, today)
     processed = set(state.processed_slugs_today or [])
 
-    candidates, source = _collect_candidates(client, state, limit)
+    # Incomplete rows are retried first, even if the daily dedup already
+    # advanced past their source list (used_new_releases / browse_offset).
+    picked = slugs_missing_platforms(db, limit)
+    source = "backfill_missing_platforms" if picked else "unknown"
+    if len(picked) >= limit:
+        db.add(state)
+        db.commit()
+        return picked[:limit], "backfill_missing_platforms"
 
-    picked: list[str] = []
+    candidates, source_new = _collect_candidates(client, state, limit)
+    source = f"{source}+{source_new}" if picked else source_new
+
+    picked_set = set(picked)
     for slug in candidates:
-        if slug in processed:
+        if slug in processed or slug in picked_set:
             continue
         picked.append(slug)
+        picked_set.add(slug)
         if len(picked) >= limit:
             break
 
@@ -122,15 +161,8 @@ def upsert_game(db: Session, payload, llm: LLMService, enable_youtube: bool = Tr
     game.critic_summary = llm.summarize_reviews(payload, critic=True)
     game.user_summary = llm.summarize_reviews(payload, critic=False)
 
-    settings = get_settings()
-    if enable_youtube and settings.youtube_enabled:
-        vid = search_lets_play_video_id(payload.title)
-        if vid:
-            excerpt = fetch_transcript_excerpt(vid)
-            if excerpt:
-                takeaway = llm.youtube_takeaway(payload.title, excerpt)
-                game.youtube_takeaway = f"{takeaway}\n\nSource: {lets_play_url(vid)}"
-
+    # Persist platforms before optional YouTube work so a transcript error
+    # cannot drop Metascore / Userscore rows.
     db.flush()
     db.query(GamePlatform).filter(GamePlatform.game_id == game.id).delete()
     for p in payload.platforms:
@@ -147,6 +179,20 @@ def upsert_game(db: Session, payload, llm: LLMService, enable_youtube: bool = Tr
 
     db.commit()
     db.refresh(game)
+
+    settings = get_settings()
+    if enable_youtube and settings.youtube_enabled:
+        try:
+            vid = search_lets_play_video_id(payload.title)
+            if vid:
+                excerpt = fetch_transcript_excerpt(vid)
+                if excerpt:
+                    takeaway = llm.youtube_takeaway(payload.title, excerpt)
+                    game.youtube_takeaway = f"{takeaway}\n\nSource: {lets_play_url(vid)}"
+                    db.commit()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("YouTube enrichment failed for %s: %s", game.slug, exc)
+
     return game
 
 
