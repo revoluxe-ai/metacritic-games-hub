@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Games — Metacritic Hub{% endblock %}
+{% block content %}
+<h1>Games catalog</h1>
+
+<form class="filters" method="get" action="/">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search by title" />
+  <select name="platform">
+    <option value="">All platforms</option>
+    {% for slug, name in platforms %}
+    <option value="{{ slug }}" {% if platform == slug %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort">
+    <option value="rating" {% if sort == 'rating' %}selected{% endif %}>Sort: Metascore</option>
+    <option value="title" {% if sort == 'title' %}selected{% endif %}>Sort: Title</option>
+    <option value="release" {% if sort == 'release' %}selected{% endif %}>Sort: Release date</option>
+  </select>
+  <button type="submit">Apply</button>
+</form>
+
+{% if not games %}
+<p class="muted">No games yet. Open the <a href="/worker">worker monitor</a> and run ingestion.</p>
+{% else %}
+<div class="grid">
+  {% for game in games %}
+  <a class="card" href="/games/{{ game.slug }}">
+    {% if game.cover_url %}
+    <img src="{{ game.cover_url }}" alt="{{ game.title }} cover" loading="lazy" />
+    {% endif %}
+    <div class="card-body">
+      <h2>{{ game.title }}</h2>
+      <p class="muted">{{ game.developer or 'Unknown developer' }}</p>
+      <ul class="scores">
+        {% for p in game.platforms[:3] %}
+        <li>{{ p.platform_name }}: Meta {{ p.metascore or '—' }} / User {{ p.user_score or '—' }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

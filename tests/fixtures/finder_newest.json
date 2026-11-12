@@ -1,0 +1,17 @@
+{
+  "data": {
+    "totalResults": 3,
+    "items": [
+      {
+        "slug": "demo-game-one",
+        "title": "Demo Game One",
+        "releaseDate": "2026-11-01"
+      },
+      {
+        "slug": "demo-game-two",
+        "title": "Demo Game Two",
+        "releaseDate": "2026-10-28"
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+[
+  {
+    "slug": "elden-ring",
+    "title": "Elden Ring",
+    "developer": "From Software",
+    "description": "A new fantasy action RPG adventure set in the Lands Between.",
+    "cover_url": "https://www.metacritic.com/a/img/catalog/provider/6/12/6-1-824956-52.jpg",
+    "trailer_url": "https://www.metacritic.com/game/elden-ring/",
+    "metacritic_url": "https://www.metacritic.com/game/elden-ring/",
+    "release_date": "2022-02-25",
+    "genres": ["Action RPG"],
+    "critic_summary": "What people like: Open-world exploration, build variety, and boss design.\nWhat people dislike: Steep difficulty spikes and occasional performance issues.",
+    "user_summary": "What people like: Freedom to explore and co-op moments.\nWhat people dislike: Cryptic quest directions for some players.",
+    "youtube_takeaway": "Streamers praise the sense of discovery and tense boss fights.\nSource: https://www.youtube.com/watch?v=E3Huy2cdih0",
+    "platforms": [
+      {"name": "PC", "slug": "pc", "metascore": 94, "user_score": 7.6, "is_lead": false},
+      {"name": "PlayStation 5", "slug": "playstation-5", "metascore": 96, "user_score": 8.4, "is_lead": true}
+    ]
+  },
+  {
+    "slug": "hades-ii",
+    "title": "Hades II",
+    "developer": "Supergiant Games",
+    "description": "Battle beyond the Underworld in this rogue-like sequel.",
+    "cover_url": "https://www.metacritic.com/a/img/catalog/provider/6/12/6-1-703339-52.jpg",
+    "trailer_url": "https://www.metacritic.com/game/hades-ii/",
+    "metacritic_url": "https://www.metacritic.com/game/hades-ii/",
+    "release_date": "2025-09-25",
+    "genres": ["Action", "Roguelike"],
+    "critic_summary": "What people like: Fast combat loop and narrative voice.\nWhat people dislike: Early access pacing for some mechanics.",
+    "user_summary": "What people like: Art and music.\nWhat people dislike: Balance tweaks still evolving.",
+    "platforms": [
+      {"name": "PC", "slug": "pc", "metascore": 94, "user_score": 8.1, "is_lead": true}
+    ]
+  },
+  {
+    "slug": "baldurs-gate-3",
+    "title": "Baldur's Gate 3",
+    "developer": "Larian Studios",
+    "description": "A story-rich RPG based on Dungeons & Dragons rules.",
+    "cover_url": "https://www.metacritic.com/a/img/catalog/provider/6/12/6-1-824956-52.jpg",
+    "trailer_url": "https://www.metacritic.com/game/baldurs-gate-3/",
+    "metacritic_url": "https://www.metacritic.com/game/baldurs-gate-3/",
+    "release_date": "2023-08-03",
+    "genres": ["RPG"],
+    "critic_summary": "What people like: Branching story and companion writing.\nWhat people dislike: Long combat at higher difficulties.",
+    "user_summary": "What people like: Co-op campaigns.\nWhat people dislike: Save file size on consoles.",
+    "platforms": [
+      {"name": "PC", "slug": "pc", "metascore": 96, "user_score": 8.7, "is_lead": true},
+      {"name": "PlayStation 5", "slug": "playstation-5", "metascore": 96, "user_score": 8.5, "is_lead": false}
+    ]
+  }
+]

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Worker monitor{% endblock %}
+{% block content %}
+<h1>Worker monitor</h1>
+<p class="muted">Hourly Metacritic ingestion (20 games/run). Manual runs share the same pipeline.</p>
+
+<div class="worker-actions">
+  <button id="run-now" type="button">Run now</button>
+  <span id="run-status" class="muted"></span>
+</div>
+
+<div id="job-panel" class="panel">
+  <h2>Current / latest job</h2>
+  <pre id="job-json">Waiting for events…</pre>
+</div>
+
+<div id="log-panel" class="panel">
+  <h2>Live log</h2>
+  <ul id="log-list"></ul>
+</div>
+
+<script src="/static/worker.js"></script>
+{% endblock %}

@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: metacritic
+      POSTGRES_PASSWORD: metacritic
+      POSTGRES_DB: metacritic
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metacritic"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8742:8742"
+    environment:
+      DATABASE_URL: postgresql://metacritic:metacritic@db:5432/metacritic
+      APP_PORT: "8742"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python -m scripts.init_db &&
+             python -m scripts.seed --if-empty &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8742"
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://metacritic:metacritic@db:5432/metacritic
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: >
+      sh -c "python -m scripts.init_db &&
+             python -m worker.main"
+
+volumes:
+  pgdata:

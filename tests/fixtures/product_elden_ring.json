@@ -1,0 +1,37 @@
+{
+  "data": {
+    "item": {
+      "title": "Elden Ring",
+      "slug": "elden-ring",
+      "description": "A new fantasy action RPG.",
+      "releaseDate": "2022-02-25",
+      "production": {
+        "companies": [
+          {"typeName": "Developer", "name": "From Software"}
+        ]
+      },
+      "images": [
+        {
+          "typeName": "mainImage",
+          "bucketPath": "/provider/6/12/6-1-824956-52.jpg"
+        }
+      ],
+      "video": {"embedUrl": "https://cdn.jwplayer.com/players/OXExoEAD.html"},
+      "genres": [{"name": "Action RPG"}],
+      "platforms": [
+        {
+          "name": "PC",
+          "slug": "pc",
+          "isLeadPlatform": false,
+          "criticScoreSummary": {"score": 94, "reviewCount": 60}
+        },
+        {
+          "name": "PlayStation 5",
+          "slug": "playstation-5",
+          "isLeadPlatform": true,
+          "criticScoreSummary": {"score": 96, "reviewCount": 93}
+        }
+      ]
+    }
+  }
+}

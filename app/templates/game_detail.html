@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ game.title }} — Metacritic Hub{% endblock %}
+{% block content %}
+<a href="/" class="back">← Back to list</a>
+
+<article class="detail">
+  <span class="detail-head">
+    {% if game.cover_url %}
+    <img class="cover" src="{{ game.cover_url }}" alt="{{ game.title }}" />
+    {% endif %}
+    <div>
+      <h1>{{ game.title }}</h1>
+      <p class="muted">{{ game.developer or 'Developer N/A' }} · {{ game.release_date or 'Release TBD' }}</p>
+      <p>{{ game.description or 'No description available.' }}</p>
+      <p>
+        <a href="{{ game.metacritic_url }}" target="_blank" rel="noopener">Metacritic page</a>
+        {% if game.trailer_url %}
+        · <a href="{{ game.trailer_url }}" target="_blank" rel="noopener">Trailer / video</a>
+        {% endif %}
+      </p>
+    </div>
+  </span>
+
+  <section>
+    <h2>Platforms & scores</h2>
+    <table>
+      <thead><tr><th>Platform</th><th>Metascore</th><th>User score</th></tr></thead>
+      <tbody>
+        {% for p in game.platforms %}
+        <tr>
+          <td>{{ p.platform_name }}{% if p.is_lead %} ★{% endif %}</td>
+          <td>{{ p.metascore or '—' }}</td>
+          <td>{{ p.user_score or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="two-col">
+    <div>
+      <h2>What critics say</h2>
+      <div class="prose">{{ game.critic_summary or 'Not summarized yet.' }}</div>
+    </div>
+    <div>
+      <h2>What players say</h2>
+      <div class="prose">{{ game.user_summary or 'Not summarized yet.' }}</div>
+    </div>
+  </section>
+
+  {% if game.youtube_takeaway %}
+  <section>
+    <h2>Let's-play takeaway</h2>
+    <div class="prose">{{ game.youtube_takeaway }}</div>
+  </section>
+  {% endif %}
+
+  {% if similar %}
+  <section>
+    <h2>Similar games</h2>
+    <div class="grid similar">
+      {% for s in similar %}
+      <a class="card compact" href="/games/{{ s.slug }}">
+        {% if s.cover_url %}<img src="{{ s.cover_url }}" alt="" loading="lazy" />{% endif %}
+        <span>{{ s.title }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}
