@@ -110,7 +110,11 @@ Without `LLM_API_KEY`, summaries use **quote-based heuristics** (still useful fo
 - **Game detail** — cover, platforms with Metascore & user score, developer, description, trailer link, critic/user LLM summaries, similar games
 - **Worker** — live SSE log stream, **Run now** triggers same pipeline as the scheduler
 
-Screenshots (when captured in agent run): `/opt/cursor/artifacts/ui-*.png`
+### Screenshots
+
+| Games list | Game detail | Worker monitor |
+|------------|-------------|----------------|
+| ![Games list](docs/screenshots/ui-games-list.png) | ![Game detail](docs/screenshots/ui-game-detail.png) | ![Worker monitor](docs/screenshots/ui-worker.png) |
 
 ## Tests
 
