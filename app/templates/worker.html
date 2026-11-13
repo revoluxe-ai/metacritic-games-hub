@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Worker monitor{% endblock %}
 {% block content %}
-<h1>Worker monitor</h1>
-<p class="muted">Hourly Metacritic ingestion (20 games/run). Manual runs share the same pipeline.</p>
+<header class="page-head">
+  <h1>Worker monitor</h1>
+  <p class="lede">Hourly Metacritic ingestion (20 games/run). Manual runs share the same pipeline.</p>
+</header>
 
 <div class="worker-actions">
   <button id="run-now" type="button">Run now</button>
@@ -11,7 +13,11 @@
 
 <div id="job-panel" class="panel">
   <h2>Current / latest job</h2>
-  <pre id="job-json">Waiting for events…</pre>
+  <div id="job-summary" class="job-summary muted">Waiting for events…</div>
+  <details class="raw-json">
+    <summary>Raw job JSON</summary>
+    <pre id="job-json"></pre>
+  </details>
 </div>
 
 <div id="log-panel" class="panel">

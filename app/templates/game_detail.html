@@ -1,57 +1,80 @@
 {% extends "base.html" %}
 {% block title %}{{ game.title }} — Metacritic Hub{% endblock %}
 {% block content %}
-<a href="/" class="back">← Back to list</a>
+<p class="crumb"><a href="/" class="back">← Back to list</a></p>
 
 <article class="detail">
-  <span class="detail-head">
+  <div class="detail-head">
     {% if game.cover_url %}
     <img class="cover" src="{{ game.cover_url }}" alt="{{ game.title }}" />
+    {% else %}
+    <div class="cover cover-placeholder">No cover</div>
     {% endif %}
-    <div>
+    <div class="detail-copy">
       <h1>{{ game.title }}</h1>
-      <p class="muted">{{ game.developer or 'Developer N/A' }} · {{ game.release_date or 'Release TBD' }}</p>
-      <p>{{ game.description or 'No description available.' }}</p>
-      <p>
+      <p class="muted">{{ game.developer or 'Developer N/A' }} · {{ game.release_date|format_date }}</p>
+      {% set lead = game.platforms|lead_platform %}
+      {% if lead %}
+      <div class="hero-scores">
+        <div class="hero-score">
+          {{ lead.metascore|metascore_badge }}
+          <span class="hero-label">Metascore{% if lead.platform_name %} · {{ lead.platform_name }}{% endif %}</span>
+        </div>
+        <div class="hero-score">
+          {{ lead.user_score|userscore_badge }}
+          <span class="hero-label">User score</span>
+        </div>
+      </div>
+      {% endif %}
+      <p class="description">{{ game.description or 'No description available.' }}</p>
+      <p class="detail-links">
         <a href="{{ game.metacritic_url }}" target="_blank" rel="noopener">Metacritic page</a>
         {% if game.trailer_url %}
-        · <a href="{{ game.trailer_url }}" target="_blank" rel="noopener">Trailer / video</a>
+        <a href="{{ game.trailer_url }}" target="_blank" rel="noopener">Trailer / video</a>
         {% endif %}
       </p>
     </div>
-  </span>
+  </div>
 
   <section>
-    <h2>Platforms & scores</h2>
-    <table>
-      <thead><tr><th>Platform</th><th>Metascore</th><th>User score</th></tr></thead>
-      <tbody>
-        {% for p in game.platforms %}
-        <tr>
-          <td>{{ p.platform_name }}{% if p.is_lead %} ★{% endif %}</td>
-          <td>{{ p.metascore or '—' }}</td>
-          <td>{{ p.user_score or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <h2>Platforms &amp; scores</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Platform</th>
+            <th>Metascore</th>
+            <th>User score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in game.platforms %}
+          <tr>
+            <td>{{ p.platform_name }}{% if p.is_lead %} <span class="lead-flag" title="Lead platform">lead</span>{% endif %}</td>
+            <td>{{ p.metascore|metascore_badge }}</td>
+            <td>{{ p.user_score|userscore_badge }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="two-col">
     <div>
       <h2>What critics say</h2>
-      <div class="prose">{{ game.critic_summary or 'Not summarized yet.' }}</div>
+      <div class="prose">{{ game.critic_summary|render_summary }}</div>
     </div>
     <div>
       <h2>What players say</h2>
-      <div class="prose">{{ game.user_summary or 'Not summarized yet.' }}</div>
+      <div class="prose">{{ game.user_summary|render_summary }}</div>
     </div>
   </section>
 
   {% if game.youtube_takeaway %}
   <section>
     <h2>Let's-play takeaway</h2>
-    <div class="prose">{{ game.youtube_takeaway }}</div>
+    <div class="prose">{{ game.youtube_takeaway|render_summary }}</div>
   </section>
   {% endif %}
 
@@ -61,8 +84,10 @@
     <div class="grid similar">
       {% for s in similar %}
       <a class="card compact" href="/games/{{ s.slug }}">
-        {% if s.cover_url %}<img src="{{ s.cover_url }}" alt="" loading="lazy" />{% endif %}
-        <span>{{ s.title }}</span>
+        <div class="card-cover">
+          {% if s.cover_url %}<img src="{{ s.cover_url }}" alt="" loading="lazy" />{% else %}<div class="cover-placeholder">No cover</div>{% endif %}
+        </div>
+        <span class="similar-title">{{ s.title }}</span>
       </a>
       {% endfor %}
     </div>

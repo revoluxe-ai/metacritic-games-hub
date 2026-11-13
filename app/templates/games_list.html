@@ -1,17 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Games — Metacritic Hub{% endblock %}
 {% block content %}
-<h1>Games catalog</h1>
+<header class="page-head">
+  <h1>Games catalog</h1>
+  <p class="lede">Browse ingested titles, filter by platform, and sort by Metascore, title, or release date.</p>
+</header>
 
 <form class="filters" method="get" action="/">
-  <input type="search" name="q" value="{{ q }}" placeholder="Search by title" />
-  <select name="platform">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search by title" aria-label="Search by title" />
+  <select name="platform" aria-label="Platform">
     <option value="">All platforms</option>
     {% for slug, name in platforms %}
     <option value="{{ slug }}" {% if platform == slug %}selected{% endif %}>{{ name }}</option>
     {% endfor %}
   </select>
-  <select name="sort">
+  <select name="sort" aria-label="Sort order">
     <option value="rating" {% if sort == 'rating' %}selected{% endif %}>Sort: Metascore</option>
     <option value="title" {% if sort == 'title' %}selected{% endif %}>Sort: Title</option>
     <option value="release" {% if sort == 'release' %}selected{% endif %}>Sort: Release date</option>
@@ -25,15 +28,25 @@
 <div class="grid">
   {% for game in games %}
   <a class="card" href="/games/{{ game.slug }}">
-    {% if game.cover_url %}
-    <img src="{{ game.cover_url }}" alt="{{ game.title }} cover" loading="lazy" />
-    {% endif %}
+    <div class="card-cover">
+      {% if game.cover_url %}
+      <img src="{{ game.cover_url }}" alt="{{ game.title }} cover" loading="lazy" />
+      {% else %}
+      <div class="cover-placeholder" aria-hidden="true">No cover</div>
+      {% endif %}
+    </div>
     <div class="card-body">
       <h2>{{ game.title }}</h2>
-      <p class="muted">{{ game.developer or 'Unknown developer' }}</p>
+      <p class="muted card-meta">{{ game.developer or 'Unknown developer' }}{% if game.release_date %} · {{ game.release_date|format_date }}{% endif %}</p>
       <ul class="scores">
         {% for p in game.platforms[:3] %}
-        <li>{{ p.platform_name }}: Meta {{ p.metascore or '—' }} / User {{ p.user_score or '—' }}</li>
+        <li>
+          <span class="platform-name">{{ p.platform_name }}</span>
+          <span class="score-pair">
+            {{ p.metascore|metascore_badge }}
+            {{ p.user_score|userscore_badge }}
+          </span>
+        </li>
         {% endfor %}
       </ul>
     </div>

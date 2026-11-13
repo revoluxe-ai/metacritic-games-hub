@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import Game, GamePlatform
 from app.services.similar import find_similar
+from app.template_filters import register_filters
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
+register_filters(templates)
 
 
 def _best_metascore(game: Game) -> int | None:
